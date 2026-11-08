@@ -1,17 +1,52 @@
-# CYD Local Flask Server
+# Shared CYD LAN Server
 
-Small LAN companion server for CYD apps. It provides the legacy Spotify-compatible routes and `/message` plus `/messages` endpoints for short PC messages. It requires Flask 2.0 or newer for the `@app.get` and `@app.post` route decorators.
+Small, reusable Flask server for CYD ↔ Windows communication. It keeps the
+last 100 short messages in memory and exposes a dependency-light JSON API.
+Use it for the Pocket OS messenger or as the base for another CYD app.
 
 ## Run
 
-```text
-py -m pip install -r requirements.txt
-py server.py
+```bash
+python -m pip install -r requirements.txt
+python server.py --port 5000
 ```
 
-The server listens on `0.0.0.0:5000` so a CYD on the same LAN can reach it. Keep the network trusted; there is no authentication and messages are held only in memory.
+Options: `--host` (default `0.0.0.0`), `--port` (default `5000`), `--debug`.
+Environment equivalents: `CYD_SERVER_HOST`, `CYD_SERVER_PORT`,
+`CYD_MAX_MESSAGES`.
 
-## Verification
+Find the PC's IPv4 address with `ipconfig` and put it in the firmware
+`config.h`. The server has no authentication — keep it on a trusted LAN and
+never expose it to the internet.
 
-Python syntax and Flask route smoke tests were run during review. Spotify routes are compatibility stubs: they log requests and return placeholder now-playing data; they do not control Spotify.
+## Endpoints
 
+| Method | Path | Body / query | Result |
+|---|---|---|---|
+| GET | `/` | — | `CYD LAN SERVER OK` |
+| GET | `/ping` | — | `pong` |
+| GET | `/health` | — | JSON status and message count |
+| POST | `/message` | `{"message":"...", "source":"CYD"}` | 201 + stored item |
+| GET | `/messages` | `?limit=50` | newest-first JSON list |
+| POST | `/messages/clear` | — | clears the in-memory queue |
+
+Validation: JSON object required (415 for non-JSON), `message` must be a
+non-empty string of at most 240 characters (400 otherwise). `source` is
+trimmed to 32 characters. Timestamps are local ISO-8601 with offset.
+
+## curl examples
+
+```bash
+curl http://127.0.0.1:5000/health
+curl -X POST http://127.0.0.1:5000/message \
+     -H "Content-Type: application/json" \
+     -d '{"message":"hello from the PC","source":"PC"}'
+curl "http://127.0.0.1:5000/messages?limit=5"
+```
+
+## Persistence and security
+
+Messages are held in RAM only and disappear when the server stops. There is no
+authentication, no TLS and no rate limiting; it is a trusted-LAN utility.
+Bind to `127.0.0.1` instead of `0.0.0.0` if only the local machine should reach
+it.
