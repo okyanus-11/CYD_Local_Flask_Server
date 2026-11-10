@@ -17,11 +17,13 @@ Endpoints
     GET  /messages?limit=  newest-first JSON list
     POST /messages/clear   drop all in-memory messages
 
-There is no authentication: bind to a trusted LAN only, never port-forward it.
+Message endpoints require a bearer token when LAN access is enabled.
 """
 from __future__ import annotations
 
 import argparse
+import hmac
+import ipaddress
 import os
 import threading
 from collections import deque
@@ -30,11 +32,58 @@ from datetime import datetime
 from flask import Flask, jsonify, request
 
 MAX_MESSAGES = int(os.getenv("CYD_MAX_MESSAGES", "100"))
+if not 1 <= MAX_MESSAGES <= 10_000:
+    raise ValueError("CYD_MAX_MESSAGES must be between 1 and 10000")
 MAX_MESSAGE_LENGTH = 240
+MAX_REQUEST_BYTES = 4096
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
+app.config["CYD_SERVER_TOKEN"] = os.getenv("CYD_SERVER_TOKEN", "")
 _messages: deque[dict] = deque(maxlen=MAX_MESSAGES)
 _lock = threading.Lock()
+
+PROTECTED_PATHS = {"/message", "/messages", "/messages/clear"}
+
+
+def _is_loopback_host(host: str) -> bool:
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host.split("%", 1)[0]).is_loopback
+    except ValueError:
+        return False
+
+
+@app.before_request
+def require_api_token():
+    if request.path not in PROTECTED_PATHS:
+        return None
+
+    token = app.config["CYD_SERVER_TOKEN"]
+    if not token:
+        return None
+
+    authorization = request.headers.get("Authorization", "")
+    scheme, separator, supplied_token = authorization.partition(" ")
+    if (
+        scheme.lower() != "bearer"
+        or not separator
+        or not hmac.compare_digest(supplied_token, token)
+    ):
+        return jsonify(ok=False, error="authentication required"), 401
+    return None
+
+
+@app.errorhandler(413)
+def request_too_large(_error):
+    return (
+        jsonify(
+            ok=False,
+            error=f"request body must be {MAX_REQUEST_BYTES} bytes or fewer",
+        ),
+        413,
+    )
 
 
 def _timestamp() -> str:
@@ -131,15 +180,26 @@ def clear_messages():
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="CYD LAN message server")
-    parser.add_argument("--host", default=os.getenv("CYD_SERVER_HOST", "0.0.0.0"))
+    parser.add_argument("--host", default=os.getenv("CYD_SERVER_HOST", "127.0.0.1"))
     parser.add_argument(
         "--port", type=int, default=int(os.getenv("CYD_SERVER_PORT", "5000"))
     )
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
+    token = app.config["CYD_SERVER_TOKEN"]
+    if not _is_loopback_host(args.host) and len(token) < 16:
+        parser.error(
+            "CYD_SERVER_TOKEN must contain at least 16 characters when binding beyond localhost"
+        )
+
     print(f"CYD LAN server listening on http://{args.host}:{args.port}")
-    print("Keep this on a trusted LAN; the API has no authentication.")
+    if token:
+        print("Bearer-token authentication is enabled for message endpoints.")
+    else:
+        print(
+            "Localhost-only mode; set CYD_SERVER_HOST and CYD_SERVER_TOKEN for LAN access."
+        )
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 
