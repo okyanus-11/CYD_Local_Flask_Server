@@ -58,7 +58,7 @@ def require_local_or_authenticated_access():
     """Never expose the message API to a LAN without an explicit shared token."""
     configured_token = os.getenv("CYD_API_TOKEN", "")
     supplied = request.headers.get("Authorization", "")
-    if configured_token:
+    if len(configured_token) >= 24:
         expected = f"Bearer {configured_token}"
         if not hmac.compare_digest(supplied, expected):
             return jsonify(ok=False, error="valid bearer token required"), 401
@@ -177,10 +177,9 @@ def main() -> None:
     except ValueError:
         bind_is_loopback = args.host.lower() == "localhost"
 
-    if not bind_is_loopback and not token:
+    if not bind_is_loopback and len(token) < 24:
         parser.error(
-            "CYD_API_TOKEN is required when binding to a LAN address; "
-            "set a long random token before starting the server"
+            "CYD_API_TOKEN (at least 24 characters) is required for LAN binding"
         )
     if args.debug and not bind_is_loopback:
         parser.error("--debug is only allowed on loopback addresses")
