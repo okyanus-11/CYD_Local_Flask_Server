@@ -58,7 +58,7 @@ def require_local_or_authenticated_access():
     """Never expose the message API to a LAN without an explicit shared token."""
     configured_token = os.getenv("CYD_API_TOKEN", "")
     supplied = request.headers.get("Authorization", "")
-    if len(configured_token) >= 24:
+    if configured_token:
         expected = f"Bearer {configured_token}"
         if not hmac.compare_digest(supplied, expected):
             return jsonify(ok=False, error="valid bearer token required"), 401
