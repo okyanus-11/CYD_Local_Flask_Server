@@ -8,16 +8,21 @@ Use it for the Pocket OS messenger or as the base for another CYD app.
 
 ```bash
 python -m pip install -r requirements.txt
-python server.py --port 5000
+# PowerShell: $env:CYD_API_TOKEN = "a-long-random-secret"
+# Bash: export CYD_API_TOKEN="a-long-random-secret"
+python server.py --host 0.0.0.0 --port 5000
 ```
 
-Options: `--host` (default `0.0.0.0`), `--port` (default `5000`), `--debug`.
-Environment equivalents: `CYD_SERVER_HOST`, `CYD_SERVER_PORT`,
-`CYD_MAX_MESSAGES`.
+Options: `--host` (default `0.0.0.0`), `--port` (default `5000`).
+Environment variables: `CYD_SERVER_HOST`, `CYD_SERVER_PORT`,
+`CYD_MAX_MESSAGES`, and `CYD_API_TOKEN`.
 
-Find the PC's IPv4 address with `ipconfig` and put it in the firmware
-`config.h`. The server has no authentication — keep it on a trusted LAN and
-never expose it to the internet.
+**A long random `CYD_API_TOKEN` is mandatory for LAN binding.** Every endpoint
+requires `Authorization: Bearer <token>`. Without a token, the server refuses
+to start on a non-loopback address and tokenless requests are restricted to
+loopback. Debug mode is also restricted to loopback. Find the PC's IPv4 address
+with `ipconfig` and configure the same token in the CYD client. Do not commit
+the token to Git.
 
 ## Endpoints
 
@@ -39,14 +44,17 @@ trimmed to 32 characters. Timestamps are local ISO-8601 with offset.
 ```bash
 curl http://127.0.0.1:5000/health
 curl -X POST http://127.0.0.1:5000/message \
+     -H "Authorization: Bearer $CYD_API_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{"message":"hello from the PC","source":"PC"}'
-curl "http://127.0.0.1:5000/messages?limit=5"
+curl "http://127.0.0.1:5000/messages?limit=5" \
+     -H "Authorization: Bearer $CYD_API_TOKEN"
 ```
 
 ## Persistence and security
 
-Messages are held in RAM only and disappear when the server stops. There is no
-authentication, no TLS and no rate limiting; it is a trusted-LAN utility.
-Bind to `127.0.0.1` instead of `0.0.0.0` if only the local machine should reach
-it.
+Messages are held in RAM only and disappear when the server stops. The API
+uses bearer-token authentication for LAN clients; traffic is still plain HTTP,
+so use it only on a trusted private network and never port-forward it. There is
+no rate limiting. Bind to `127.0.0.1` if only the local machine should reach
+the service.
