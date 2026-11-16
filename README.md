@@ -58,3 +58,7 @@ uses bearer-token authentication for LAN clients; traffic is still plain HTTP,
 so use it only on a trusted private network and never port-forward it. There is
 no rate limiting. Bind to `127.0.0.1` if only the local machine should reach
 the service.
+
+## Installation
+
+For prerequisites, environment setup, configuration, and run/build commands, see the [installation guide](INSTALLATION.md).
