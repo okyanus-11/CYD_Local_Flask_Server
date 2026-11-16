@@ -5,9 +5,13 @@ The CYD and the Windows PC must be on the same trusted home network.  The
 server keeps the last 100 short messages in memory and exposes a tiny JSON
 API.  It is deliberately dependency-light: Flask is the only requirement.
 
-Run:
+Run on a trusted LAN:
     python -m pip install -r requirements.txt
-    python server.py --port 5000
+    # Set CYD_API_TOKEN to a long random secret first.
+    python server.py --host 0.0.0.0 --port 5000
+
+Run locally without a token:
+    python server.py --host 127.0.0.1 --port 5000
 
 Endpoints
     GET  /                 plain-text liveness string
@@ -17,7 +21,7 @@ Endpoints
     GET  /messages?limit=  newest-first JSON list
     POST /messages/clear   drop all in-memory messages
 
-There is no authentication: bind to a trusted LAN only, never port-forward it.
+LAN access requires CYD_API_TOKEN and a Bearer authorization header. Tokenless access is loopback-only.
 """
 from __future__ import annotations
 
