@@ -42,7 +42,7 @@ trimmed to 32 characters. Timestamps are local ISO-8601 with offset.
 ## curl examples
 
 ```bash
-curl http://127.0.0.1:5000/health
+curl http://127.0.0.1:5000/health -H "Authorization: Bearer $CYD_API_TOKEN"
 curl -X POST http://127.0.0.1:5000/message \
      -H "Authorization: Bearer $CYD_API_TOKEN" \
      -H "Content-Type: application/json" \
