@@ -61,4 +61,4 @@ the service.
 
 ## Installation
 
-For prerequisites, environment setup, configuration, and run/build commands, see the [installation guide](INSTALLATION.md).
+Requires Python 3.9+. Install dependencies with `pip install -r requirements.txt`, set a long random `CYD_API_TOKEN`, and start `python server.py --host 0.0.0.0 --port 5000`. Configure the same token and the PC's current LAN IP in the CYD client. LAN traffic is plain HTTP, so use a trusted private network only. See the [full installation guide](INSTALLATION.md).
